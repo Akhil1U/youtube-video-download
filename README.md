@@ -131,14 +131,28 @@ Set these in your platform's dashboard:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `YDA_COOKIES_CONTENT` | ✅ Recommended | Base64-encoded Netscape `cookies.txt` from a YouTube browser session. Without this, cloud IPs are likely to be blocked by YouTube. |
+| `YDA_COOKIES_CONTENT` | ✅ Recommended | Base64-encoded Netscape `cookies.txt`, exported per [Exporting Cookies Correctly](#exporting-cookies-correctly). Without this, requests are likely to be blocked by YouTube's bot detection. |
 | `PORT` | Auto-set | Port for the server. Set automatically by both Render and Railway. |
 | `YDA_CONFIG_FILE_PATH` | Optional | Path to a custom config YAML. Defaults to `config.yml`. |
 | `YDA_CONFIG_CONTENT` | Optional | Base64-encoded custom `config.yml` — overrides the bundled one if set. |
 
-### Encoding Your Cookies File
+### Exporting Cookies Correctly
 
-Export cookies from your browser using the [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) extension, then encode it:
+Follow yt-dlp's official procedure exactly — this is the part most guides get wrong, and doing it incorrectly is why cookies get invalidated within hours instead of weeks. See [yt-dlp's cookie export guide](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies):
+
+1. Open a **private/incognito browser window** — do not use your regular window.
+2. Log into YouTube inside that private window.
+3. Still in that same tab, navigate to `https://www.youtube.com/robots.txt`.
+4. Export cookies using one of yt-dlp's recommended extensions:
+   - Chrome/Edge/Brave: [**Get cookies.txt LOCALLY**](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
+   - Firefox: **cookies.txt**
+   - ⚠️ Do **not** use the old "Get cookies.txt" extension (without "LOCALLY") — it's been flagged as malware and removed from the Chrome Web Store.
+5. **Close the private window immediately** and never reopen that session again.
+
+> [!IMPORTANT]
+> Step 5 is the critical one. YouTube rotates account cookies frequently on any browser tab that stays open/active. If you keep browsing YouTube in that same session afterward, the cookies you already exported get silently invalidated — which is exactly the "cookies are no longer valid" error. Treat the exported `cookies.txt` as a one-time snapshot, not a live session.
+
+Then encode the file:
 
 ```powershell
 # Windows PowerShell
@@ -151,7 +165,7 @@ base64 -w 0 cookies.txt | pbcopy   # macOS
 base64 -w 0 cookies.txt            # Linux — copy the output
 ```
 
-Paste the result as the value of `YDA_COOKIES_CONTENT` in the platform dashboard.
+Paste the result as the value of `YDA_COOKIES_CONTENT` in the platform dashboard, then redeploy/restart the service.
 
 ### Notes on Free Tiers
 
@@ -167,30 +181,27 @@ Paste the result as the value of `YDA_COOKIES_CONTENT` in the platform dashboard
 
 YouTube actively flags and blocks requests that lack proper browser-like authorization context. This is a common cause of download failures, especially on fresh deployments or IPs with no prior request history.
 
-**Recommended workarounds:**
+**Recommended workarounds, in order of effort:**
 
-1. **Cookies + PO Token** - Extract your browser cookies and a valid `po_token`, then pass them to the app. This is the most reliable method. See the full guide:
-   [How to extract PO Token](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide)
-
-2. **Whitelisted Proxy** - Route requests through a proxy server that YouTube has not flagged.
+1. **Fresh cookies, exported correctly** (see [Exporting Cookies Correctly](#exporting-cookies-correctly) above) + the `deno` JS runtime (already wired up via `nixpacks.toml`/`render.yaml`). This alone resolves the vast majority of "sign in to confirm you're not a bot" errors.
+2. **Cookies + PO Token** — a `po_token` proves the request's origin and is increasingly required by YouTube for some player clients. This project supports it via the `po_token` / `visitorData` fields in `config.yml` (see `app/models.py`'s `ytdlp_params` for the exact combination logic), but **only as a static, manually-pasted value** — there's no automated token-generation plugin wired in. Per yt-dlp's own [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide), manually extracted tokens are bound to a single video ID and expire quickly, so this is high-maintenance and not a "set once" fix. Only worth doing if cookies alone aren't enough.
+3. **Whitelisted Proxy** — route requests through a proxy server that YouTube has not flagged.
 
 > [!NOTE]
-> Using a proxy does not guarantee success. YouTube's detection mechanisms can flag proxy IPs as well. The cookie + PO token approach is generally more stable.
+> Using a proxy does not guarantee success, and cloud provider IP ranges (Render, Railway, AWS, etc.) are broadly rate-limited/flagged by YouTube regardless of cookies. Fresh, correctly-exported cookies is still the highest-leverage fix for a free-tier deployment.
 
 ### "Sign in to confirm you're not a bot" / "cookies are no longer valid"
 
-This means YouTube rejected the session behind your `cookies.txt`, not a bug in the app. Causes and fixes:
+This means YouTube rejected the session behind your `cookies.txt` — not a bug in the app. The documented cause (per yt-dlp's wiki) is **cookie rotation**: YouTube periodically rotates account cookies on any browser tab/session that stays active. If you exported cookies and then kept using that same browser session, the exported snapshot is invalidated behind your back.
 
-- **Cookies expired or rotated** — YouTube invalidates session cookies periodically (sometimes within days), especially when they're used from an IP/location different from where they were exported. There is no way to make a one-time cookie export last forever; expect to refresh it periodically:
-  1. Log into YouTube in a normal browser (ideally in a private/incognito window you keep signed in just for this).
-  2. Re-export `cookies.txt` with the same browser extension used originally.
-  3. Re-encode and update `YDA_COOKIES_CONTENT` in the platform dashboard:
-     ```powershell
-     [Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt")) | Set-Clipboard
-     ```
-  4. Redeploy/restart the service so `start.sh` picks up the new value.
-- **"No supported JavaScript runtime could be found"** — fixed by the `deno` install in `nixpacks.toml` plus the auto-wiring in `start.sh` (see above). If you still see this warning, check your build logs for `deno` install failures, or confirm your platform is actually using `nixpacks.toml` (Render's native build sometimes needs `Build Command` set explicitly rather than relying on auto-detection).
-- **Still blocked with fresh cookies** — cloud provider IP ranges (Render, Railway, AWS, etc.) are broadly flagged by YouTube regardless of cookies. Combining cookies with a `po_token` (see above) or routing through a residential/whitelisted proxy is the most reliable long-term fix.
+Fix:
+1. Re-export cookies using the exact procedure in [Exporting Cookies Correctly](#exporting-cookies-correctly) — private window → log in → visit `robots.txt` → export → **close the window immediately**.
+2. Re-encode and update `YDA_COOKIES_CONTENT` in the platform dashboard.
+3. Redeploy/restart the service so `start.sh` picks up the new value.
+
+There is no way to make a cookie export last forever — expect to repeat this periodically (the wiki gives no fixed lifetime, but if you're browsing YouTube normally in other tabs with the same Google account, expect it sooner rather than later).
+
+**"No supported JavaScript runtime could be found"** — fixed by the `deno` install (`nixpacks.toml` for Railway, `render.yaml`'s `buildCommand` for Render) plus the auto-wiring in `start.sh`. If you still see this warning, check your build logs for a `deno` install failure, or confirm the platform actually ran your updated build/start commands (see the Render manual-dashboard note above).
 
 ## Utility Servers
 
