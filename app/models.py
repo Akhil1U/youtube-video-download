@@ -88,6 +88,7 @@ class ConfigModel(BaseModel):
 
     js_runtime: str | None = None
     js_runtime_name: str | None = "deno"
+    remote_components: list[str] | None = None
 
     clear_downloaded_contents: bool = True
 
@@ -132,6 +133,9 @@ class ConfigModel(BaseModel):
             params["js_runtimes"] = {
                 self.js_runtime_name: {"path": self.js_runtime}
             }
+
+        if self.remote_components:
+            params["remote_components"] = self.remote_components
 
         if self.proxy:
             # Passing proxy with null value makes download to fail

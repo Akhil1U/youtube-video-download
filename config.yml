@@ -51,6 +51,13 @@ js_runtime_name : deno
 # Name yt-dlp uses to key the runtime. Leave as "deno" unless using another
 # supported runtime.
 
+remote_components : ["ejs:github"]
+# Enables yt-dlp's remote challenge-solver script (EJS), fetched from GitHub
+# and executed inside js_runtime. Without this, deno is installed but idle,
+# and yt-dlp logs "Signature solving failed" / only images are downloadable.
+# See: https://github.com/yt-dlp/yt-dlp/wiki/EJS
+# Only takes effect when js_runtime is also set.
+
 cookiefile : cookies.txt
 # Path to Youtube's cookie file formatted in netscape.
 # On cloud platforms, set the YDA_COOKIES_CONTENT environment variable
