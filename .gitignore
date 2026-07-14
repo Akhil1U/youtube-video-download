@@ -1,3 +1,6 @@
+# YouTube auth - never commit real session cookies
+cookies.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -107,6 +107,53 @@ For production deployments, offloading static file delivery (downloaded audio an
 > [!IMPORTANT]
 > In production, it is recommended to serve static content using [uWSGI](https://uwsgi-docs.readthedocs.io/en/latest/) for better concurrency and stability. The included [`uwsgi.sh`](../uwsgi.sh) script provides a ready-to-use uWSGI configuration to get you started quickly.
 
+## Cloud Deployment (Render & Railway)
+
+This project is pre-configured for deployment on [Render](https://render.com) and [Railway](https://railway.app) free tiers via the included `render.yaml`, `railway.json`, and `nixpacks.toml` files.
+
+### Quick Deploy
+
+| Platform | Steps |
+|----------|-------|
+| **Render** | Go to [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint** → Connect your repo. Render detects `render.yaml` automatically. |
+| **Railway** | Go to [railway.app/new](https://railway.app/new) → **Deploy from GitHub repo** → Select your repo. Railway reads `railway.json` automatically. |
+
+### Required Environment Variables
+
+Set these in your platform's dashboard:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `YDA_COOKIES_CONTENT` | ✅ Recommended | Base64-encoded Netscape `cookies.txt` from a YouTube browser session. Without this, cloud IPs are likely to be blocked by YouTube. |
+| `PORT` | Auto-set | Port for the server. Set automatically by both Render and Railway. |
+| `YDA_CONFIG_FILE_PATH` | Optional | Path to a custom config YAML. Defaults to `config.yml`. |
+| `YDA_CONFIG_CONTENT` | Optional | Base64-encoded custom `config.yml` — overrides the bundled one if set. |
+
+### Encoding Your Cookies File
+
+Export cookies from your browser using the [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) extension, then encode it:
+
+```powershell
+# Windows PowerShell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt")) | Set-Clipboard
+```
+
+```sh
+# Linux / macOS
+base64 -w 0 cookies.txt | pbcopy   # macOS
+base64 -w 0 cookies.txt            # Linux — copy the output
+```
+
+Paste the result as the value of `YDA_COOKIES_CONTENT` in the platform dashboard.
+
+### Notes on Free Tiers
+
+> [!NOTE]
+> - **Render free tier** spins down after 15 minutes of inactivity. The first request after idle takes ~30s to wake up.
+> - **Railway free tier** provides $5/month of compute credit — enough for light usage.
+> - The filesystem is ephemeral on both platforms. Downloaded media is cleared on each restart (this is already the default behavior).
+> - `ffmpeg` is installed automatically via `nixpacks.toml` — required by `yt-dlp` for audio/video merging.
+
 ## Troubleshooting
 
 ### Authorization Issues
@@ -147,6 +194,10 @@ _Built a frontend that works with this API? Feel free to open a PR and add it to
 - [How to extract PO Token](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide) - Required reading if you encounter YouTube authorization errors
 - [yt-dlp documentation](https://github.com/yt-dlp/yt-dlp) - The underlying download engine powering this API
 - [uWSGI documentation](https://uwsgi-docs.readthedocs.io/en/latest/) - Recommended for production static file serving
+- [render.yaml](./render.yaml) - Render Blueprint for one-click cloud deployment
+- [railway.json](./railway.json) - Railway project configuration
+- [nixpacks.toml](./nixpacks.toml) - Nixpacks build configuration (ffmpeg, uv, Python 3.14)
+- [start.sh](./start.sh) - Cloud startup script (handles cookie/config injection from env vars)
 
 ## License
 

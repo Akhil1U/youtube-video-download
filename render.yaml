@@ -1,0 +1,60 @@
+# =============================================================================
+#  render.yaml — Render Blueprint for YouTube Downloader API
+#  https://render.com/docs/blueprint-spec
+#
+#  Usage:
+#   1. Push this repo to GitHub / GitLab.
+#   2. Go to https://dashboard.render.com → New → Blueprint.
+#   3. Connect your repo. Render detects this file automatically.
+#   4. Set the environment variables listed below in the dashboard.
+# =============================================================================
+
+services:
+  - type: web
+    name: youtube-downloader-api
+    runtime: python
+    region: oregon        # Change to your preferred region
+    plan: free            # Free tier (spins down after 15 min idle)
+
+    # -------------------------------------------------------------------------
+    # Build
+    # -------------------------------------------------------------------------
+    buildCommand: |
+      pip install uv
+      uv sync --frozen
+
+    # -------------------------------------------------------------------------
+    # Start — delegates to start.sh which handles env-var → file decoding
+    # -------------------------------------------------------------------------
+    startCommand: bash start.sh
+
+    # -------------------------------------------------------------------------
+    # Health check — Render uses this to know the app is alive
+    # -------------------------------------------------------------------------
+    healthCheckPath: /api/health
+
+    # -------------------------------------------------------------------------
+    # Auto-deploy on push
+    # -------------------------------------------------------------------------
+    autoDeploy: true
+
+    # -------------------------------------------------------------------------
+    # Environment variables
+    # Set sensitive values in the Render dashboard (not here).
+    # -------------------------------------------------------------------------
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.14"          # uv will install this Python version
+
+      - key: YDA_COOKIES_CONTENT
+        sync: false            # Set in Render dashboard — base64-encoded cookies.txt
+        # How to generate:
+        #   Windows PowerShell : [Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt"))
+        #   Linux / macOS      : base64 -w 0 cookies.txt
+
+      - key: YDA_CONFIG_FILE_PATH
+        value: "config.yml"    # Uses the bundled production config.yml
+
+      # Optional overrides — uncomment and set in dashboard if needed:
+      # - key: YDA_CONFIG_CONTENT
+      #   sync: false          # base64-encoded custom config.yml (overrides config.yml)

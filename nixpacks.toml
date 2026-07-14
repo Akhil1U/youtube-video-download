@@ -1,0 +1,20 @@
+# =============================================================================
+#  nixpacks.toml — Build configuration for Nixpacks
+#  Used by Railway (and optionally Render) to build the project.
+#  https://nixpacks.com/docs/configuration/file
+# =============================================================================
+
+[phases.setup]
+# Install system-level packages needed by yt-dlp (ffmpeg for audio/video merging)
+nixPkgs = ["ffmpeg", "curl"]
+
+[phases.install]
+# Install uv then sync dependencies using the lockfile
+cmds = [
+    "curl -LsSf https://astral.sh/uv/install.sh | sh",
+    "~/.cargo/bin/uv python install 3.14",
+    "~/.cargo/bin/uv sync --frozen",
+]
+
+[start]
+cmd = "bash start.sh"
