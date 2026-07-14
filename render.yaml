@@ -18,15 +18,25 @@ services:
 
     # -------------------------------------------------------------------------
     # Build
+    #
+    # Render's native Python runtime has no apt/root access and does NOT read
+    # nixpacks.toml (that file is only consumed by Railway). ffmpeg is already
+    # preinstalled on Render's native runtime, but deno is not, so we fetch a
+    # portable deno binary here and drop it in a repo-local bin/ dir that
+    # start.sh's `command -v deno` check will find via PATH.
     # -------------------------------------------------------------------------
     buildCommand: |
       pip install uv
       uv sync --frozen
+      mkdir -p bin
+      export DENO_INSTALL="$PWD/.deno"
+      curl -fsSL https://deno.land/install.sh | sh
+      cp "$DENO_INSTALL/bin/deno" bin/deno
 
     # -------------------------------------------------------------------------
     # Start — delegates to start.sh which handles env-var → file decoding
     # -------------------------------------------------------------------------
-    startCommand: bash start.sh
+    startCommand: PATH="$PWD/bin:$PATH" bash start.sh
 
     # -------------------------------------------------------------------------
     # Health check — Render uses this to know the app is alive

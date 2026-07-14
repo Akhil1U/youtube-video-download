@@ -39,6 +39,18 @@ visitorData :
 # Visit https://github.com/yt-dlp/yt-dlp/wiki/Extractors
 # To get to know how to extract po_token and visitorData
 
+js_runtime :
+# Absolute path to a JS runtime binary (e.g. deno) that yt-dlp uses to solve
+# YouTube's player challenges. Without this, yt-dlp logs
+# "No supported JavaScript runtime could be found" and some formats/streams
+# may fail to extract.
+# nixpacks.toml installs deno; start.sh auto-fills this value at startup
+# by resolving `command -v deno` and appending it here — leave it blank in git.
+
+js_runtime_name : deno
+# Name yt-dlp uses to key the runtime. Leave as "deno" unless using another
+# supported runtime.
+
 cookiefile : cookies.txt
 # Path to Youtube's cookie file formatted in netscape.
 # On cloud platforms, set the YDA_COOKIES_CONTENT environment variable

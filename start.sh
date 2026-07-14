@@ -21,6 +21,10 @@
 #                          Automatically set by Render and Railway.
 #                          Defaults to 8000 if not set.
 #
+#  Also auto-detects a `deno` binary on PATH (installed via nixpacks.toml)
+#  and wires its path into config.yml's js_runtime field, so yt-dlp can
+#  solve YouTube's player challenges. No env var needed for this.
+#
 # =============================================================================
 
 set -euo pipefail
@@ -56,19 +60,39 @@ if [ -n "${YDA_CONFIG_CONTENT:-}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Ensure static working directory exists
+# 3. Point config at the deno binary installed via nixpacks.toml, so yt-dlp
+#    can solve YouTube's player challenges (avoids the "No supported
+#    JavaScript runtime could be found" warning / missing formats).
+# ---------------------------------------------------------------------------
+ACTIVE_CONFIG_FILE="${YDA_CONFIG_FILE_PATH:-config.yml}"
+DENO_PATH="$(command -v deno || true)"
+if [ -n "$DENO_PATH" ]; then
+    echo "🦕  Found deno at $DENO_PATH — wiring into $ACTIVE_CONFIG_FILE"
+    # Replace an existing (possibly blank) js_runtime line, or append one.
+    if grep -q '^js_runtime *:' "$ACTIVE_CONFIG_FILE"; then
+        sed -i "s|^js_runtime *:.*|js_runtime : $DENO_PATH|" "$ACTIVE_CONFIG_FILE"
+    else
+        printf '\njs_runtime : %s\njs_runtime_name : deno\n' "$DENO_PATH" >> "$ACTIVE_CONFIG_FILE"
+    fi
+else
+    echo "⚠️   deno not found on PATH — yt-dlp will run without a JS runtime."
+    echo "    Add \"deno\" to nixPkgs in nixpacks.toml to enable it."
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Ensure static working directory exists
 # ---------------------------------------------------------------------------
 mkdir -p static/downloads static/temps
 echo "📁  Working directories ready: static/"
 
 # ---------------------------------------------------------------------------
-# 4. Determine port
+# 5. Determine port
 # ---------------------------------------------------------------------------
 PORT="${PORT:-8000}"
 echo "🌐  Binding on port $PORT"
 
 # ---------------------------------------------------------------------------
-# 5. Launch the server
+# 6. Launch the server
 #    uv run ensures the correct venv / Python version is used.
 #    fastapi run binds to 0.0.0.0 by default.
 # ---------------------------------------------------------------------------

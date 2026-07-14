@@ -5,8 +5,10 @@
 # =============================================================================
 
 [phases.setup]
-# Install system-level packages needed by yt-dlp (ffmpeg for audio/video merging)
-nixPkgs = ["ffmpeg", "curl"]
+# Install system-level packages needed by yt-dlp
+# ffmpeg: audio/video merging
+# deno: JS runtime yt-dlp uses to solve YouTube's player challenges
+nixPkgs = ["ffmpeg", "curl", "deno"]
 
 [phases.install]
 # Install uv then sync dependencies using the lockfile

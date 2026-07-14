@@ -1,6 +1,10 @@
 # YouTube auth - never commit real session cookies
 cookies.txt
 
+# deno binary fetched by render.yaml's buildCommand (Render native runtime only)
+/bin/
+/.deno/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

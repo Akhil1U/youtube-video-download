@@ -116,7 +116,14 @@ This project is pre-configured for deployment on [Render](https://render.com) an
 | Platform | Steps |
 |----------|-------|
 | **Render** | Go to [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint** → Connect your repo. Render detects `render.yaml` automatically. |
-| **Railway** | Go to [railway.app/new](https://railway.app/new) → **Deploy from GitHub repo** → Select your repo. Railway reads `railway.json` automatically. |
+| **Railway** | Go to [railway.app/new](https://railway.app/new) → **Deploy from GitHub repo** → Select your repo. Railway reads `railway.json` / `nixpacks.toml` automatically. |
+
+> [!IMPORTANT]
+> If you set **Build Command** / **Start Command** manually in the Render dashboard (instead of deploying via Blueprint), they must match `render.yaml` exactly, including the `deno` install step:
+> - **Build Command**: `pip install uv && uv sync --frozen && mkdir -p bin && export DENO_INSTALL="$PWD/.deno" && curl -fsSL https://deno.land/install.sh | sh && cp "$DENO_INSTALL/bin/deno" bin/deno`
+> - **Start Command**: `PATH="$PWD/bin:$PATH" bash start.sh`
+>
+> Deploying via **Blueprint** (the recommended path above) picks these up automatically from `render.yaml` — no manual dashboard entry needed.
 
 ### Required Environment Variables
 
@@ -152,7 +159,7 @@ Paste the result as the value of `YDA_COOKIES_CONTENT` in the platform dashboard
 > - **Render free tier** spins down after 15 minutes of inactivity. The first request after idle takes ~30s to wake up.
 > - **Railway free tier** provides $5/month of compute credit — enough for light usage.
 > - The filesystem is ephemeral on both platforms. Downloaded media is cleared on each restart (this is already the default behavior).
-> - `ffmpeg` is installed automatically via `nixpacks.toml` — required by `yt-dlp` for audio/video merging.
+> - `ffmpeg` and `deno` are installed automatically via `nixpacks.toml` — `ffmpeg` for audio/video merging, `deno` as the JS runtime `yt-dlp` needs to solve YouTube's player challenges. `start.sh` auto-detects `deno` on `PATH` and wires it into `config.yml` (`js_runtime`) at every startup — no env var needed.
 
 ## Troubleshooting
 
@@ -169,6 +176,21 @@ YouTube actively flags and blocks requests that lack proper browser-like authori
 
 > [!NOTE]
 > Using a proxy does not guarantee success. YouTube's detection mechanisms can flag proxy IPs as well. The cookie + PO token approach is generally more stable.
+
+### "Sign in to confirm you're not a bot" / "cookies are no longer valid"
+
+This means YouTube rejected the session behind your `cookies.txt`, not a bug in the app. Causes and fixes:
+
+- **Cookies expired or rotated** — YouTube invalidates session cookies periodically (sometimes within days), especially when they're used from an IP/location different from where they were exported. There is no way to make a one-time cookie export last forever; expect to refresh it periodically:
+  1. Log into YouTube in a normal browser (ideally in a private/incognito window you keep signed in just for this).
+  2. Re-export `cookies.txt` with the same browser extension used originally.
+  3. Re-encode and update `YDA_COOKIES_CONTENT` in the platform dashboard:
+     ```powershell
+     [Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt")) | Set-Clipboard
+     ```
+  4. Redeploy/restart the service so `start.sh` picks up the new value.
+- **"No supported JavaScript runtime could be found"** — fixed by the `deno` install in `nixpacks.toml` plus the auto-wiring in `start.sh` (see above). If you still see this warning, check your build logs for `deno` install failures, or confirm your platform is actually using `nixpacks.toml` (Render's native build sometimes needs `Build Command` set explicitly rather than relying on auto-detection).
+- **Still blocked with fresh cookies** — cloud provider IP ranges (Render, Railway, AWS, etc.) are broadly flagged by YouTube regardless of cookies. Combining cookies with a `po_token` (see above) or routing through a residential/whitelisted proxy is the most reliable long-term fix.
 
 ## Utility Servers
 
@@ -196,7 +218,7 @@ _Built a frontend that works with this API? Feel free to open a PR and add it to
 - [uWSGI documentation](https://uwsgi-docs.readthedocs.io/en/latest/) - Recommended for production static file serving
 - [render.yaml](./render.yaml) - Render Blueprint for one-click cloud deployment
 - [railway.json](./railway.json) - Railway project configuration
-- [nixpacks.toml](./nixpacks.toml) - Nixpacks build configuration (ffmpeg, uv, Python 3.14)
+- [nixpacks.toml](./nixpacks.toml) - Nixpacks build configuration (ffmpeg, deno, uv, Python 3.14)
 - [start.sh](./start.sh) - Cloud startup script (handles cookie/config injection from env vars)
 
 ## License
