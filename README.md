@@ -1,3 +1,5 @@
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt")) | Set-Clipboard
+
 <div align="center">
 
 # YouTube Video Downloader API

@@ -2,11 +2,13 @@
 
 from os import getcwd
 from pathlib import Path
+from threading import Timer
 from urllib.parse import unquote
 
 from flask import Flask, request, send_from_directory
 
-from app.config import DOWNLOAD_DIR
+from app.config import DOWNLOAD_DIR, loaded_config
+from app.downloads import delete_file_if_present
 
 app = Flask(__name__)
 static_app = app
@@ -21,7 +23,15 @@ ref_directory = (
 @app.get("/file/<path:name>")
 def send_static_file(name):
     download = request.args.get("download", "0") in ("1", "true")
-    return send_from_directory(ref_directory, unquote(name), as_attachment=download)
+    file_path = ref_directory / unquote(name)
+    response = send_from_directory(
+        ref_directory, unquote(name), as_attachment=download
+    )
+    if loaded_config.delete_download_after_access:
+        response.call_on_close(
+            lambda: Timer(1, delete_file_if_present, args=[file_path]).start()
+        )
+    return response
 
 
 if __name__ == "__main__":

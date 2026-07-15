@@ -17,7 +17,7 @@ from fastapi import (
 from httpx import Proxy
 from innertube import InnerTube
 from pydantic import ValidationError
-from starlette.websockets import WebSocketState
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 from yt_dlp_bonus import Downloader, YoutubeDLBonus
 from yt_dlp_bonus.constants import audioQualities, videoQualities
 from yt_dlp_bonus.utils import get_size_string
@@ -25,6 +25,8 @@ from yt_dlp_bonus.utils import get_size_string
 import app.v1.models as models
 from app.config import DOWNLOAD_DIR, TEMP_DIR, loaded_config
 from app.models import CustomWebsocketResponse
+from app.rate_limit import get_client_key, rate_limiter
+from app.security import authorize_websocket
 from app.utils import (
     get_absolute_link_to_static_file,
     logger,
@@ -309,9 +311,10 @@ def real_download_process(
 
 @router.websocket("/download/ws", name="Process download (websocket)")
 async def download_websocket_handler(websocket: WebSocket):
-    await websocket.accept()
-
     try:
+        authorize_websocket(websocket)
+        rate_limiter.check(get_client_key(websocket))
+        await websocket.accept()
         payload_dict: dict = await websocket.receive_json()
         payload = models.MediaDownloadProcessPayload(**payload_dict)
 
@@ -339,6 +342,10 @@ async def download_websocket_handler(websocket: WebSocket):
             status="error", detail=dict(errors=json.loads(e.json()))
         )
         await websocket.send_json(error.model_dump())
+    except HTTPException:
+        await websocket.close(code=1008)
+    except WebSocketDisconnect:
+        pass
 
     except Exception as e:
         logger.error(f"Websocket error {e}")

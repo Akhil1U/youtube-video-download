@@ -1,5 +1,6 @@
 """Startup and shutdown events"""
 
+import asyncio
 import sys
 from datetime import timedelta
 from shutil import rmtree
@@ -9,6 +10,7 @@ from sqlmodel import Session, delete
 
 from app.config import loaded_config
 from app.db import VideoInfo, create_tables, engine
+from app.downloads import delete_expired_downloads
 from app.utils import DOWNLOAD_DIR, create_temp_dirs, logger, utc_now
 
 
@@ -33,6 +35,10 @@ def event_delete_expired_extracted_info():
         return time_offset
 
 
+def event_delete_expired_downloads():
+    return delete_expired_downloads()
+
+
 def event_clear_previous_downloads():
     if loaded_config.clear_downloaded_contents:
         if DOWNLOAD_DIR.exists():
@@ -49,3 +55,9 @@ def event_clear_previous_downloads():
             f"{loaded_config.clear_downloaded_contents=}",
             file=sys.stderr,
         )
+
+
+async def periodic_download_cleanup():
+    while True:
+        await asyncio.sleep(loaded_config.download_file_ttl_in_seconds)
+        event_delete_expired_downloads()

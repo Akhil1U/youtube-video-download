@@ -1,9 +1,6 @@
 .PHONY: (
 	      install test test-api-v1 \
           runserver-dev runserver \
-		  run-proxy-server run-static-server \
-		  run-proxy-server-uwsgi run-static-server-uwsgi \
-		  uwsgi-proxy uwsgi-static \
 		  deploy clear-expired-extracts
 	)
 
@@ -35,24 +32,6 @@ runserver-dev:
 # Target to run production server
 runserver:
 	$(PYTHON) -m fastapi run app
-
-run-proxy-server:
-	$(PYTHON) -m servers.proxy http://localhost:8000 --host $(HOST)
-
-run-proxy-server-uwsgi:
-	./uwsgi.sh proxy
-
-run-static-server:
-	$(PYTHON) -m servers.static --host $(HOST)
-
-run-static-server-uwsgi:
-	./uwsgi.sh static
-
-uwsgi-static:
-	uwsgi --ini configs/uwsgi/static.ini
-
-uwsgi-proxy:
-	uwsgi --ini configs/uwsgi/proxy.ini
 
 kill-uwsgi:
 	pkill uwsgi

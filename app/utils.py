@@ -16,7 +16,7 @@ from yt_dlp_bonus.exceptions import (
     UserInputError,
 )
 
-from app.config import DOWNLOAD_DIR, loaded_config
+from app.config import DOWNLOAD_DIR
 from app.exceptions import InvalidVideoUrl
 
 logger = logging.getLogger(__file__)
@@ -131,16 +131,12 @@ def get_video_id(url: str) -> str:
 
 def get_absolute_link_to_static_file(filename: str, request: Request | WebSocket):
     """Get absolute url to a static file"""
-    if loaded_config.static_server_url:
-        return os.path.join(loaded_config.static_server_url.__str__(), filename)
-    else:
-        return os.path.join(
-            # {request.url.scheme}:
-            f"//{request.url.netloc}",
-            "static",
-            "file",
-            filename,
-        )
+    return os.path.join(
+        f"//{request.url.netloc}",
+        "static",
+        "file",
+        filename,
+    )
 
 
 def silence_websocket_exceptions(func):

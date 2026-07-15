@@ -1,24 +1,28 @@
 """Youtube downloader API"""
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
 from a2wsgi import WSGIMiddleware
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
 from app.config import loaded_config, pyproject_dot_toml_details
 from app.events import (
     create_temp_dirs,
     event_clear_previous_downloads,
+    event_delete_expired_downloads,
     event_create_tables,
     event_delete_expired_extracted_info,
+    periodic_download_cleanup,
 )
 from app.models import ConfigModel
+from app.rate_limit import get_client_key, rate_limiter
+from app.security import authorize_http_request
 from app.static import static_app
-from app.utils import logger
 
 create_temp_dirs()
 
@@ -33,10 +37,16 @@ async def lifespan(app: FastAPI):
     # create_temp_dirs()
     event_create_tables()
     event_delete_expired_extracted_info()
+    event_delete_expired_downloads()
+    cleanup_task = None
+    if loaded_config.download_file_ttl_in_seconds > 0:
+        cleanup_task = asyncio.create_task(periodic_download_cleanup())
 
     yield
 
     # shutdown
+    if cleanup_task:
+        cleanup_task.cancel()
     event_clear_previous_downloads()
     event_delete_expired_extracted_info()
 
@@ -60,9 +70,7 @@ app = FastAPI(
 )
 
 app.include_router(v1_router, prefix="/api", tags=["v1"])
-
-if not loaded_config.static_server_url:
-    app.mount("/static", WSGIMiddleware(static_app, workers=50))
+app.mount("/static", WSGIMiddleware(static_app, workers=50))
 
 
 @app.get("/api/config", include_in_schema=False)
@@ -77,27 +85,23 @@ def test_live():
     return {}
 
 
-if (
-    loaded_config.frontend_dir
-    and not loaded_config.serve_frontend_from_static_server
-):
-    # Lets's serve the frontend from /
-    logger.info(f"Serving frontend. Frontend dir: {loaded_config.frontend_dir}")
-    app.mount(
-        "/",
-        StaticFiles(
-            directory=loaded_config.frontend_dir, check_dir=True, html=True
-        ),
-        name="frontend",
-    )
+@app.get("/", include_in_schema=False)
+async def home():
+    return RedirectResponse("/api/docs")
 
-else:
-    # Redirect / to docs
-    logger.info("Not serving frontend. Redirecting / to /api/docs")
 
-    @app.get("/", include_in_schema=False)
-    async def home():
-        return RedirectResponse("/api/docs")
+@app.middleware("http")
+async def enforce_api_policy(request: Request, call_next):
+    if request.url.path.startswith("/api/v1"):
+        try:
+            authorize_http_request(request)
+            rate_limiter.check(get_client_key(request))
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+            )
+    return await call_next(request)
 
 
 @app.middleware("http")

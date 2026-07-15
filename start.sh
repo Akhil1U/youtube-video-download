@@ -17,6 +17,11 @@
 #    YDA_CONFIG_FILE_PATH  Absolute/relative path to the config YAML to use.
 #                          Defaults to config.yml in the project root.
 #
+#    YDA_API_KEY           API key required by protected endpoints when
+#                          require_api_key is enabled in config.
+#
+#    YDA_DATABASE_ENGINE   Database URL override, useful for managed Postgres.
+#
 #    PORT                  Port to bind the server on.
 #                          Automatically set by Render and Railway.
 #                          Defaults to 8000 if not set.

@@ -65,6 +65,12 @@ services:
       - key: YDA_CONFIG_FILE_PATH
         value: "config.yml"    # Uses the bundled production config.yml
 
+      - key: YDA_API_KEY
+        sync: false            # Set in Render dashboard when api protection is enabled
+
+      # - key: YDA_DATABASE_ENGINE
+      #   sync: false          # Managed Postgres URL, recommended over SQLite in production
+
       # Optional overrides — uncomment and set in dashboard if needed:
       # - key: YDA_CONFIG_CONTENT
       #   sync: false          # base64-encoded custom config.yml (overrides config.yml)

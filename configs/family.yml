@@ -18,13 +18,27 @@ contact_email : user@localhost.dev
 contact_url : http://localhost:8000/user
 # URL pointing to contact_name's website
 
-frontend_dir:
-# Path to directory containing the frontend files
-
-
 ### API CONFIGURATIONS ###########
 database_engine : sqlite:///db.sqlite3
 # sqlalchemy database engine
+
+require_api_key : true
+# Require clients to send X-API-Key or Authorization: Bearer <key>
+
+api_key :
+# Leave blank in git. Set via YDA_API_KEY in production.
+
+rate_limit_requests : 30
+# Maximum API requests allowed per client IP inside rate_limit_window_seconds
+
+rate_limit_window_seconds : 60
+# Fixed window used by the in-memory rate limiter
+
+download_file_ttl_in_seconds : 300
+# Delete unclaimed download files after this many seconds
+
+delete_download_after_access : true
+# Delete the generated file immediately after it is served once
 
 po_token :
 # Po-token value
@@ -68,21 +82,6 @@ default_extension : webm
 
 enable_logging : false
 # downloader logging
-
-### STATIC SERVER CONFIGS ####
-
-static_server_url :
-# Static server accessible endpoint
-# e.g http://localhost:8888/file
-
-serve_frontend_from_static_server: false
-# Frontend contents will be served along with 
-# downloadable videos and audios
-# NOTE: This disables serving forntend-contents from the API server
-
-api_base_url :
-# To be used for running the proxy script - url pointing to the API
-# e.g http://localhost:8000
 
 ####    DOWNLOAD OPTIONS ####
 

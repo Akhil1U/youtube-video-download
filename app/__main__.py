@@ -14,9 +14,9 @@ def delete_expired_extracts(
     quiet: t.Annotated[bool, typer.Option(help="Do not stdout anything")] = False,
 ):
     """Delete cached extracted-infos that have expired"""
-    from app.events import event_all_delete_expired_extracted_info
+    from app.events import event_delete_expired_extracted_info
 
-    time_offset = event_all_delete_expired_extracted_info()
+    time_offset = event_delete_expired_extracted_info()
     if not quiet:
         print(
             "[INFO] Extracts successfully deleted [ Time Offset : "

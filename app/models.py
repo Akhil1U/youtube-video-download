@@ -47,14 +47,12 @@ class ConfigModel(BaseModel):
     video_info_cache_period_in_hrs: PositiveInt | None = 4
     database_engine: str | None = "sqlite:///db.sqlite3"
     default_extension: Literal["mp4", "webm"] = "webm"
-    frontend_dir: str | None = None
-
-    # static server options
-    static_server_url: str | None = None
-
-    serve_frontend_from_static_server: bool | None = False
-
-    api_base_url: str | None = None
+    require_api_key: bool = False
+    api_key: str | None = None
+    rate_limit_requests: int = 30
+    rate_limit_window_seconds: int = 60
+    download_file_ttl_in_seconds: int = 300
+    delete_download_after_access: bool = True
 
     # Downloader params - yt_dlp
     default_audio_format: Literal["webm", "m4a"] = "m4a"
@@ -94,14 +92,6 @@ class ConfigModel(BaseModel):
 
     @property
     def ytdlp_params(self) -> dict[str, int | bool | None]:
-
-        if self.serve_frontend_from_static_server and not self.frontend_dir:
-            raise Exception(
-                "You have specified to serve frontend contents from static server"
-                " yet you have NOT specified the FRONTEND-DIR. "
-                "Set the path to frontend_dir in the .env (config) file."
-            )
-
         params = {
             "cookiefile": self.cookiefile,
             # http_chunk_size=self.http_chunk_size, # activating this makes
@@ -219,27 +209,6 @@ class ConfigModel(BaseModel):
             raise ValueError(f"Invalid value for js_runtime passed - {value}")
         return value
 
-    @field_validator("frontend_dir")
-    def validate_frontend_dir(value):
-        if not value:
-            return
-        frontend_dir = Path(value)
-        if not frontend_dir.exists() or not frontend_dir.is_dir():
-            raise ValueError(f"Invalid frontend_dir passed - {value}")
-
-        if not frontend_dir.joinpath("index.html").exists():
-            raise ValueError(
-                f"Frontend-dir must contain index.html file - {value}"
-            )
-        return value
-
-    @field_validator("static_server_url")
-    def validate_static_server_url(value: str | None):
-        if value and not value.startswith("http"):
-            raise ValueError(f"Invalid value for static_server_url - {value}")
-
-        return value
-
     @field_validator("filename_prefix")
     def validate_filename_prefix(value):
         if not value:
@@ -257,11 +226,3 @@ class ConfigModel(BaseModel):
             "email": str(self.contact_email),
             "url": str(self.contact_url),
         }
-
-    @property
-    def api_base_url_validated(self) -> str:
-        """Checks that `api_base_url` is not None"""
-        if not self.api_base_url:
-            raise ValueError("Base url for API cannot be null.")
-
-        return self.api_base_url
